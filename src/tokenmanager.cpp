@@ -1,9 +1,9 @@
 #include "tokenmanager.h"
 
-tokenManager::tokenManager(QObject *parent) : QObject(parent)
+tmTokenManager::tmTokenManager(QObject *parent) : QObject(parent)
 {
     clearPeerInfo();
-    peerInfo_t temp =generateSelfInfo();
+    tmPeerInfo_t temp =generateSelfInfo();
     setSelfInfo(temp);
     setTargetInfo(temp);
 
@@ -21,20 +21,20 @@ tokenManager::tokenManager(QObject *parent) : QObject(parent)
     connect(&tokenOrderInOvertimer,SIGNAL(timeout()),this,SLOT(tokenOrderInOvertime()));
 
     clientSocket = new QUdpSocket(this);
-    if( clientSocket->bind(port) ) {
+    if( clientSocket->bind(tmPort) ) {
         selfInfo->errorState = OrderInOverTime;
         emit peerErrorStateChanged(selfInfo->errorState);
     }
 
 }
 
-tokenManager::~tokenManager(){
+tmTokenManager::~tmTokenManager(){
     clearPeerInfo();
 }
 
-int tokenManager::setPeerInfo(peerInfo_t& newone){
+int tmTokenManager::setPeerInfo(tmPeerInfo_t& newone){
     if(newone.peerName != "" && newone.peerIp != ""){
-        peerInfo_t* test;
+        tmPeerInfo_t* test;
         for (int i=0; i<pPeersList.size();i++){
             test = pPeersList.at(i);
             if(test->peerName == newone.peerName){
@@ -42,7 +42,7 @@ int tokenManager::setPeerInfo(peerInfo_t& newone){
                 return 0;
             }
         }
-        test = new peerInfo_t();
+        test = new tmPeerInfo_t();
         *test = newone;
         pPeersList.append(test);//未发现同名节点，新建
         return 0;
@@ -50,7 +50,7 @@ int tokenManager::setPeerInfo(peerInfo_t& newone){
     else return -1;
 }
 
-int tokenManager::setPeersInfo(QList<peerInfo_t*>& newlist){
+int tmTokenManager::setPeersInfo(QList<tmPeerInfo_t*>& newlist){
     if(newlist.size()>1){
         clearPeerInfo();//释放内存
 
@@ -67,10 +67,10 @@ int tokenManager::setPeersInfo(QList<peerInfo_t*>& newlist){
     else return -1;
 }
 
-int tokenManager::setSelfInfo(peerInfo_t& self){
+int tmTokenManager::setSelfInfo(tmPeerInfo_t& self){
     switch(pPeersList.size()){
         case 0:
-            pPeersList.append(new peerInfo_t());
+            pPeersList.append(new tmPeerInfo_t());
         default:
             if(self.peerName != "" && self.peerIp != ""){
                 *(pPeersList.at(0)) = self;
@@ -84,24 +84,24 @@ int tokenManager::setSelfInfo(peerInfo_t& self){
     }
 }
 
-peerInfo_t tokenManager::generateSelfInfo(){
-    peerInfo_t ret;
+tmPeerInfo_t tmTokenManager::generateSelfInfo(){
+    tmPeerInfo_t ret;
     QTime time = QTime::currentTime();
     qsrand(time.msec());
     ret.peerName = tr("default_station_%1").arg(qrand());
     ret.peerIp = QNetworkInterface::allAddresses().first().toString();
     ret.tokenGenerator =false;
     ret.errorState = noError;
-    ret.state = tokenNOTAvailable;
+    ret.state = peerOnlinewithoutToken;
     return ret;
 }
 
-int tokenManager::setTargetInfo(peerInfo_t& target){
+int tmTokenManager::setTargetInfo(tmPeerInfo_t& target){
     switch(pPeersList.size()){
         case 0:
             return -1;
         case 1:
-            pPeersList.append(new peerInfo_t());
+            pPeersList.append(new tmPeerInfo_t());
         default:
             if(target.peerName != "" && target.peerIp != ""){
                 *(pPeersList.at(1)) = target;
@@ -113,7 +113,7 @@ int tokenManager::setTargetInfo(peerInfo_t& target){
     }
 }
 
-int tokenManager::clearPeerInfo(){
+int tmTokenManager::clearPeerInfo(){
     for (int i=0; i<pPeersList.size();i++){
         delete pPeersList.at(i);
     }//释放内存
@@ -121,13 +121,13 @@ int tokenManager::clearPeerInfo(){
     return 0;
 }
 
-int tokenManager::selfEnable(){
-    selfInfo->state = tokenNOTAvailable;
+int tmTokenManager::selfEnable(){
+    selfInfo->state = peerOnlinewithoutToken;
     emit peerStateChanged(selfInfo->state);
     return 0;
 }
 
-int tokenManager::selfDisable(){
+int tmTokenManager::selfDisable(){
     selfInfo->state = peerDisable;
     emit peerStateChanged(selfInfo->state);
     return 0;
@@ -135,8 +135,8 @@ int tokenManager::selfDisable(){
 
 /////////////////////////////////1、本机主动交出令牌
 //本机主动交出令牌 请求
-int tokenManager::tokenTakeOut(peerInfo_t& target, int overtime){
-    if(selfInfo->state == tokenAvailable ){
+int tmTokenManager::tokenTakeOut(tmPeerInfo_t& target, int overtime){
+    if(selfInfo->state == peerOnlinewithToken ){
         if(setTargetInfo(target))
             return -1;
         selfInfo->state = tokenTakeOutPending;
@@ -151,27 +151,27 @@ int tokenManager::tokenTakeOut(peerInfo_t& target, int overtime){
     else return -1;
 }
 //本机主动交出令牌 超时
-void tokenManager::tokenTakeOutOvertime(){
+void tmTokenManager::tokenTakeOutOvertime(){
     if(selfInfo->state == tokenTakeOutPending ){
-        selfInfo->state = tokenAvailable;
+        selfInfo->state = peerOnlinewithToken;
         emit peerStateChanged(selfInfo->state);
         selfInfo->errorState = takeOutOverTime;
         emit peerErrorStateChanged(selfInfo->errorState);
     }
 }
 //本机主动交出令牌 确认
-int tokenManager::tokenTakeOutAck(){
+int tmTokenManager::tokenTakeOutAck(){
     if(selfInfo->state == tokenTakeOutPending ){
-        selfInfo->state = tokenNOTAvailable;
+        selfInfo->state = peerOnlinewithoutToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
     else return -1;
 }
 //本机主动交出令牌 取消
-int tokenManager::tokenTakeOutCancel(){
+int tmTokenManager::tokenTakeOutCancel(){
     if(selfInfo->state == tokenTakeOutPending ){
-        selfInfo->state = tokenAvailable;
+        selfInfo->state = peerOnlinewithToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
@@ -179,8 +179,8 @@ int tokenManager::tokenTakeOutCancel(){
 }
 /////////////////////////////////2、本机主动获得令牌
 //本机主动获得令牌 请求
-int tokenManager::tokenTakeIn(peerInfo_t& source, int overtime){
-    if(selfInfo->state == tokenNOTAvailable ){
+int tmTokenManager::tokenTakeIn(tmPeerInfo_t& source, int overtime){
+    if(selfInfo->state == peerOnlinewithoutToken ){
         if(setTargetInfo(source))
             return -1;
         selfInfo->state = tokenTakeInPending;
@@ -195,27 +195,27 @@ int tokenManager::tokenTakeIn(peerInfo_t& source, int overtime){
     else return -1;
 }
 //本机主动获得令牌 超时
-void tokenManager::tokenTakeInOvertime(){
+void tmTokenManager::tokenTakeInOvertime(){
     if(selfInfo->state == tokenTakeInPending ){
-        selfInfo->state = tokenNOTAvailable;
+        selfInfo->state = peerOnlinewithoutToken;
         emit peerStateChanged(selfInfo->state);
         selfInfo->errorState = takeInOverTime;
         emit peerErrorStateChanged(selfInfo->errorState);
     }
 }
 //本机主动获得令牌 确认
-int tokenManager::tokenTakeInAck(){
+int tmTokenManager::tokenTakeInAck(){
     if(selfInfo->state == tokenTakeInPending ){
-        selfInfo->state = tokenAvailable;
+        selfInfo->state = peerOnlinewithToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
     else return -1;
 }
 //本机主动获得令牌 取消
-int tokenManager::tokenTakeInCancel(){
+int tmTokenManager::tokenTakeInCancel(){
     if(selfInfo->state == tokenTakeInPending ){
-        selfInfo->state = tokenNOTAvailable;
+        selfInfo->state = peerOnlinewithoutToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
@@ -224,8 +224,8 @@ int tokenManager::tokenTakeInCancel(){
 
 /////////////////////////////////3、本机被动交出令牌
 //本机主动将令牌交出 请求
-int tokenManager::tokenOrderOut(peerInfo_t& target, int overtime){
-    if(selfInfo->state == tokenAvailable ){
+int tmTokenManager::tokenOrderOut(tmPeerInfo_t& target, int overtime){
+    if(selfInfo->state == peerOnlinewithToken ){
         if(setTargetInfo(target))
             return -1;
         selfInfo->state = tokenOrderOutPending;
@@ -240,27 +240,27 @@ int tokenManager::tokenOrderOut(peerInfo_t& target, int overtime){
     else return -1;
 }
 //本机被动交出令牌 超时
-void tokenManager::tokenOrderOutOvertime(){
+void tmTokenManager::tokenOrderOutOvertime(){
     if(selfInfo->state == tokenOrderOutPending ){
-        selfInfo->state = tokenAvailable;
+        selfInfo->state = peerOnlinewithToken;
         emit peerStateChanged(selfInfo->state);
         selfInfo->errorState = OrderOutOverTime;
         emit peerErrorStateChanged(selfInfo->errorState);
     }
 }
 //本机被动交出令牌 确认
-int tokenManager::tokenOrderOutAck(){
+int tmTokenManager::tokenOrderOutAck(){
     if(selfInfo->state == tokenOrderOutPending ){
-        selfInfo->state = tokenNOTAvailable;
+        selfInfo->state = peerOnlinewithoutToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
     else return -1;
 }
 //本机被动交出令牌 取消
-int tokenManager::tokenOrderOutCancel(){
+int tmTokenManager::tokenOrderOutCancel(){
     if(selfInfo->state == tokenOrderOutPending ){
-        selfInfo->state = tokenAvailable;
+        selfInfo->state = peerOnlinewithToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
@@ -269,8 +269,8 @@ int tokenManager::tokenOrderOutCancel(){
 
 /////////////////////////////////4、本机被动获得令牌
 //本机被动获得令牌 请求
-int tokenManager::tokenOrderIn(peerInfo_t& source, int overtime){
-    if(selfInfo->state == tokenNOTAvailable ){
+int tmTokenManager::tokenOrderIn(tmPeerInfo_t& source, int overtime){
+    if(selfInfo->state == peerOnlinewithoutToken ){
         if(setTargetInfo(source))
             return -1;
         selfInfo->state = tokenOrderInPending;
@@ -285,27 +285,27 @@ int tokenManager::tokenOrderIn(peerInfo_t& source, int overtime){
     else return -1;
 }
 //本机被动获得令牌 超时
-void tokenManager::tokenOrderInOvertime(){
+void tmTokenManager::tokenOrderInOvertime(){
     if(selfInfo->state == tokenOrderInPending ){
-        selfInfo->state = tokenNOTAvailable;
+        selfInfo->state = peerOnlinewithoutToken;
         emit peerStateChanged(selfInfo->state);
         selfInfo->errorState = OrderInOverTime;
         emit peerErrorStateChanged(selfInfo->errorState);
     }
 }
 //本机被动获得令牌 确认
-int tokenManager::tokenOrderInAck(){
+int tmTokenManager::tokenOrderInAck(){
     if(selfInfo->state == tokenOrderInPending ){
-        selfInfo->state = tokenAvailable;
+        selfInfo->state = peerOnlinewithToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }
     else return -1;
 }
 //本机被动获得令牌 取消
-int tokenManager::tokenOrderInCancel(){
+int tmTokenManager::tokenOrderInCancel(){
     if(selfInfo->state == tokenOrderInPending ){
-        selfInfo->state = tokenNOTAvailable;
+        selfInfo->state = peerOnlinewithoutToken;
         emit peerStateChanged(selfInfo->state);
         return 0;
     }

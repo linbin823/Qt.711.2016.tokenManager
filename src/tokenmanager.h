@@ -11,16 +11,20 @@
 #include <QTimer>
 #include <QNetworkInterface>
 
+#define tmPort 10452
+
 typedef enum {
     peerDisable = 0x01,
-    tokenAvailable,
-    tokenNOTAvailable,
+    peerOnlinewithToken,
+    peerOnlinewithoutToken,
+    peerOffline,
     tokenTakeOutPending,//本机主动把令牌给其他peer，但其他peer未确认
     tokenOrderOutPending,//其他peer要求本机令牌，本机未确认
     tokenTakeInPending,//本机主动要获得令牌，但令牌持有peer未确认
-    tokenOrderInPending //令牌持有peer要求把令牌传送给本机，但本机未确认
+    tokenOrderInPending, //令牌持有peer要求把令牌传送给本机，但本机未确认
 
-} peerState_e;
+
+} tmPeerState_e;
 
 typedef enum {
     noError  = 0x01,
@@ -33,30 +37,30 @@ typedef enum {
     OrderOutOverTime,
     OrderInOverTime
 
-} peerErrorState_e;
+} tmPeerErrorState_e;
 
 typedef struct {
 
     bool tokenGenerator;//peer是令牌产生者，整个内网上必须有且唯一
     QString peerIp;
     QString peerName;
-    peerState_e state;
-    peerErrorState_e errorState;
+    tmPeerState_e state;
+    tmPeerErrorState_e errorState;
 
-} peerInfo_t;
+} tmPeerInfo_t;
 
-class tokenManager : public QObject
+class tmTokenManager : public QObject
 {
     Q_OBJECT
 public:
-    explicit tokenManager(QObject *parent = 0);
-    ~tokenManager();
+    explicit tmTokenManager(QObject *parent = 0);
+    ~tmTokenManager();
 
 //get & set
-    peerState_e getPeerState() const{
+    tmPeerState_e getPeerState() const{
         return selfInfo->state;
     }
-    peerErrorState_e getPeerErrorState() const{
+    tmPeerErrorState_e getPeerErrorState() const{
         return selfInfo->errorState;
     }
 
@@ -68,21 +72,21 @@ public:
         emit masterPeerMessageUpdated(msg);
     }
 
-    int setPeerInfo(peerInfo_t& newone);
-    int setPeersInfo(QList<peerInfo_t*>& newlist);
+    int setPeerInfo(tmPeerInfo_t& newone);
+    int setPeersInfo(QList<tmPeerInfo_t*>& newlist);
 
-    QList<peerInfo_t*> getPeersInfo() const{
+    QList<tmPeerInfo_t*> getPeersInfo() const{
         return pPeersList;
     }
 
-    int setSelfInfo(peerInfo_t& self);
-    peerInfo_t getSelfInfo() const{
+    int setSelfInfo(tmPeerInfo_t& self);
+    tmPeerInfo_t getSelfInfo() const{
         return *selfInfo;
     }
-    peerInfo_t generateSelfInfo();
+    tmPeerInfo_t generateSelfInfo();
 
-    int setTargetInfo(peerInfo_t& target);
-    peerInfo_t getTargetInfo() const{
+    int setTargetInfo(tmPeerInfo_t& target);
+    tmPeerInfo_t getTargetInfo() const{
         return *targetInfo;
     }
 
@@ -91,7 +95,7 @@ public:
 
 //token take out
 public:
-    int tokenTakeOut(peerInfo_t& target,int overtime=10000);
+    int tokenTakeOut(tmPeerInfo_t& target,int overtime=10000);
     int tokenTakeOutCancel();
 public slots:
     void tokenTakeOutOvertime();
@@ -100,7 +104,7 @@ private:
 
 //token take in
 public:
-    int tokenTakeIn(peerInfo_t& source, int overtime=10000);
+    int tokenTakeIn(tmPeerInfo_t& source, int overtime=10000);
     int tokenTakeInCancel();
 public slots:
     void tokenTakeInOvertime();
@@ -114,7 +118,7 @@ public:
 public slots:
     void tokenOrderOutOvertime();
 private:
-    int tokenOrderOut(peerInfo_t& source, int overtime=0);
+    int tokenOrderOut(tmPeerInfo_t& source, int overtime=0);
 
 //token order in
 public:
@@ -123,18 +127,18 @@ public:
 public slots:
     void tokenOrderInOvertime();
 private:
-    int tokenOrderIn(peerInfo_t& source, int overtime=0);
+    int tokenOrderIn(tmPeerInfo_t& source, int overtime=0);
 
 
 signals:
     void masterPeerMessageUpdated(QString msg);
-    void peerStateChanged(peerState_e& state);
-    void peerErrorStateChanged(peerErrorState_e& state);
+    void peerStateChanged(tmPeerState_e& state);
+    void peerErrorStateChanged(tmPeerErrorState_e& state);
 
 private:
-    peerInfo_t* selfInfo;//本peer信息
-    peerInfo_t* targetInfo;//目标peer信息
-    QList<peerInfo_t*> pPeersList;//网络上所有peer信息
+    tmPeerInfo_t* selfInfo;//本peer信息
+    tmPeerInfo_t* targetInfo;//目标peer信息
+    QList<tmPeerInfo_t*> pPeersList;//网络上所有peer信息
 
     QString masterPeerMessage;
     QUdpSocket* clientSocket;
@@ -142,7 +146,7 @@ private:
     QTimer tokenTakeOutOvertimer, tokenTakeInOvertimer, tokenOrderOutOvertimer, tokenOrderInOvertimer;
 
     int clearPeerInfo();
-    int port = 10452;
+
 };
 
 #endif // TOKENMANAGER_H
