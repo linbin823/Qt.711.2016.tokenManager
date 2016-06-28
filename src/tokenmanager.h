@@ -14,16 +14,14 @@
 #define tmPort 10452
 
 typedef enum {
-    peerDisable = 0x01,
-    peerOnlinewithToken,
-    peerOnlinewithoutToken,
-    tokenTakeOutPending,//本机主动把令牌给其他peer，但其他peer未确认
-    tokenOrderOutPending,//其他peer要求本机令牌，本机未确认
-    tokenTakeInPending,//本机主动要获得令牌，但令牌持有peer未确认
-    tokenOrderInPending, //令牌持有peer要求把令牌传送给本机，但本机未确认
-
-    peerOffline,//本状态不适用于self peer，掉线状态
-
+    peerDisable = 0x01,       //peer禁用
+    peerOnlinewithToken,      //peer在线有令牌，主站
+    peerOnlinewithoutToken,   //peer在线无令牌，从站
+    tokenTakeOutPending,      //该peer主动把令牌给其他peer，但其他peer未确认。该peer具有令牌，主站。
+    tokenOrderOutPending,     //其他peer要求该peer的令牌，该peer未确认。该peer具有令牌，主站。
+    tokenTakeInPending,       //该peer主动要获得令牌，但令牌持有peer未确认。该peer无令牌，从站。
+    tokenOrderInPending,      //令牌持有peer要求把令牌传送给该peer，但该peer未确认。该peer无令牌，从站。
+    peerOffline,              //peer离线。此状态不适用于self，用于判断其他peer的掉线状态。
 
 } tmPeerState_e;
 
@@ -41,11 +39,13 @@ typedef enum {
 
 typedef struct {
 
-    QString peerIp;
-    QString peerName;
-    tmPeerState_e state;
-    tmPeerErrorState_e errorState;
-    int tokenGeneratorPriority;//本peer令牌产生的优先级。全网blkout后，优先级值最大的自动产生令牌
+    quint32 peerIp;                 //peer的IP地址，类型quint32
+    QString peerName;               //peer名称，类型QString，长度小于255bytes
+    tmPeerState_e state;            //peer状态，枚举
+    tmPeerErrorState_e errorState;  //peer错误状态，枚举
+    int tokenGeneratorPriority;     //peer令牌生产优先级，int。全网blkout后，优先级值最大的自动产生令牌
+    QTime lastUpdateTime;
+
 
 } tmPeerInfo_t;
 
@@ -61,22 +61,67 @@ public:
     explicit tmTokenManager(QObject *parent = 0);
     ~tmTokenManager();
 
+public:
+    //token take out
+    int tokenTakeOut(tmPeerInfo_t& target,int overtime=10000);
+    int tokenTakeOutCancel();
+    //token take in
+    int tokenTakeIn(tmPeerInfo_t& source, int overtime=10000);
+    int tokenTakeInCancel();
+    //token order out
+    int tokenOrderOutAck();
+    int tokenOrderOutCancel();
+    //token order in
+    int tokenOrderInAck();
+    int tokenOrderInCancel();
+    //token take in forced
+    int tokenForceTakeIn();
+public slots:
+    void tokenTakeOutOvertime();
+    void tokenTakeInOvertime();
+    void tokenOrderOutOvertime();
+    void tokenOrderInOvertime();
+private:
+    int tokenTakeOutAck();
+    int tokenTakeInAck();
+    int tokenOrderOut(tmPeerInfo_t& source, int overtime=0);
+    int tokenOrderIn(tmPeerInfo_t& source, int overtime=0);
+
+public:
+    //token manager control
+    int start(void);//新建端口，初始化网络连接，自身状态设置为online（启动失败除外）
+    int stop(void);//删除端口，终止网络连接，自身状态设为Disable
+    int restart(void);//重启
+
+    bool isWithToken();//判断是否有令牌，有=true
+
+//others
+private:
+
+    tmPeerInfo_t* selfInfo;//本peer信息
+    tmPeerInfo_t* targetInfo;//目标peer信息
+    QList<tmPeerInfo_t*> pPeersList;//网络上所有peer信息
+
+    QString masterPeerMessage;
+    QUdpSocket* clientSocket;
+    QUdpSocket* serverSocket;
+    QTimer tokenTakeOutOvertimer, tokenTakeInOvertimer, tokenOrderOutOvertimer, tokenOrderInOvertimer, heartBeatTimer;
+
+    int clearPeerInfo();//清空列表删除内存
+
+private slots:
+    void processPendingDatagrams();
+    void heartBeatSender();
+
 signals:
-    void masterPeerMessageUpdated(QString msg);
+    void masterPeerMessageUpdated(QString& msg);
     void selfStateChanged(tmPeerState_e& state);
     void selfErrorStateChanged(tmPeerErrorState_e& state);
+    void tmOtherCommandReceived(QString& msg);
 
 //get & set
-private:
-    void setSelfState(tmPeerState_e newState){
-        selfInfo->state = newState;
-        emit selfStateChanged(selfInfo->state);
-    }
-    void setSelfErrorState(tmPeerErrorState_e newErrorState){
-        selfInfo->errorState = newErrorState;
-        emit selfErrorStateChanged(selfInfo->errorState);
-    }
 public:
+    //get & set
     tmPeerState_e getSelfState() const{
         return selfInfo->state;
     }
@@ -109,79 +154,21 @@ public:
         return *targetInfo;
     }
 
-    int tmTokenManager::setSelfEnable(){
-        if(selfInfo->errorState != innerError){
-            setSelfState( peerOnlinewithoutToken );
-            return -1;
-        }
-        else setSelfState( peerDisable );
-        return 0;
+    int setSelfEnable();
+    int setSelfDisable();
+
+private:
+    //get & set
+    void setSelfState(tmPeerState_e newState){
+        selfInfo->state = newState;
+        emit selfStateChanged(selfInfo->state);
+    }
+    void setSelfErrorState(tmPeerErrorState_e newErrorState){
+        selfInfo->errorState = newErrorState;
+        emit selfErrorStateChanged(selfInfo->errorState);
     }
 
-    int tmTokenManager::setSelfDisable(){
-        setSelfState( peerDisable );
-        return 0;
-    }
 
-
-//token take out
-public:
-    int tokenTakeOut(tmPeerInfo_t& target,int overtime=10000);
-    int tokenTakeOutCancel();
-public slots:
-    void tokenTakeOutOvertime();
-private:
-    int tokenTakeOutAck();
-
-//token take in
-public:
-    int tokenTakeIn(tmPeerInfo_t& source, int overtime=10000);
-    int tokenTakeInCancel();
-public slots:
-    void tokenTakeInOvertime();
-private:
-    int tokenTakeInAck();
-
-//token order out
-public:
-    int tokenOrderOutAck();
-    int tokenOrderOutCancel();
-public slots:
-    void tokenOrderOutOvertime();
-private:
-    int tokenOrderOut(tmPeerInfo_t& source, int overtime=0);
-
-//token order in
-public:
-    int tokenOrderInAck();
-    int tokenOrderInCancel();
-public slots:
-    void tokenOrderInOvertime();
-private:
-    int tokenOrderIn(tmPeerInfo_t& source, int overtime=0);
-
-
-//others
-public:
-    int start(void);//新建端口，初始化网络连接，自身状态设置为online（启动失败除外）
-    int stop(void);//删除端口，终止网络连接，自身状态设为Disable
-    int restart(void);//重启
-
-private:
-    tmPeerInfo_t* selfInfo;//本peer信息
-    tmPeerInfo_t* targetInfo;//目标peer信息
-    QList<tmPeerInfo_t*> pPeersList;//网络上所有peer信息
-
-    QString masterPeerMessage;
-    QUdpSocket* clientSocket;
-    QUdpSocket* serverSocket;
-    QTimer tokenTakeOutOvertimer, tokenTakeInOvertimer, tokenOrderOutOvertimer, tokenOrderInOvertimer;
-
-    int clearPeerInfo();
-
-private slots:
-    void processPendingDatagrams();
-    void broadcastDatagram();
 };
 
 #endif // TOKENMANAGER_H
