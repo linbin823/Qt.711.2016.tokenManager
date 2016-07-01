@@ -13,13 +13,9 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-    sender.cpp \
-    receiver.cpp \
     tokenmanager.cpp
 
 HEADERS  += \
-    sender.h \
-    receiver.h \
     tokenmanager.h
 
 FORMS    +=

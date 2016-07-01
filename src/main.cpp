@@ -40,22 +40,14 @@
 
 #include <QApplication>
 
-#include "sender.h"
-#include "receiver.h"
 #include "tokenmanager.h"
 
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    Sender sender;
-    sender.show();
-
-    Receiver receiver;
-    receiver.show();
 
     tmTokenManager manager;
-    manager.start();
 
     return app.exec();
 }

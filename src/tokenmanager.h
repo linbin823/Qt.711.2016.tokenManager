@@ -14,7 +14,7 @@
 #define tmPort 10452
 
 typedef enum {
-    peerDisable = 0x01,       //peer禁用
+    peerDisable = 1,       //peer禁用
     peerOnlinewithToken,      //peer在线有令牌，主站
     peerOnlinewithoutToken,   //peer在线无令牌，从站
     tokenTakeOutPending,      //该peer主动把令牌给其他peer，但其他peer未确认。该peer具有令牌，主站。
@@ -26,8 +26,8 @@ typedef enum {
 } tmPeerState_e;
 
 typedef enum {
-    noError  = 0x01,
-    tokenLost, //网络上没有令牌
+    noError  = 1,
+    tokenLost,                      //网络上没有令牌
     tokenMoreThanOne,
     innerError,
     takeOutOverTime,
@@ -86,6 +86,8 @@ private:
     int tokenTakeInAck();
     int tokenOrderOut(tmPeerInfo_t& source, int overtime=0);
     int tokenOrderIn(tmPeerInfo_t& source, int overtime=0);
+    //token Order out forced
+    int tokenForceOrderOut();
 
 public:
     //token manager control
@@ -105,19 +107,24 @@ private:
     QString masterPeerMessage;
     QUdpSocket* clientSocket;
     QUdpSocket* serverSocket;
-    QTimer tokenTakeOutOvertimer, tokenTakeInOvertimer, tokenOrderOutOvertimer, tokenOrderInOvertimer, heartBeatTimer;
+    QTimer tokenTakeOutOvertimer, tokenTakeInOvertimer, tokenOrderOutOvertimer, tokenOrderInOvertimer, heartBeatTimer,offlineCheckTimer;
 
     int clearPeerInfo();//清空列表删除内存
+    QString datagramReadParameter(QByteArray & data, int *begin); //读取报文
+    int offlineDelay;
+    int offlineCheckInterv;
+    int heartbeatInterv;
 
 private slots:
     void processPendingDatagrams();
     void heartBeatSender();
+    void offlineCheck();
 
 signals:
     void masterPeerMessageUpdated(QString& msg);
     void selfStateChanged(tmPeerState_e& state);
     void selfErrorStateChanged(tmPeerErrorState_e& state);
-    void tmOtherCommandReceived(QString& msg);
+    void tmOtherCommandReceived(QByteArray& msg);
 
 //get & set
 public:

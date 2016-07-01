@@ -4,9 +4,17 @@ tmTokenManager::tmTokenManager(QObject *parent) : QObject(parent)
 {
     pPeersList.clear();
     tmPeerInfo_t temp =generateSelfInfo();
-    setSelfInfo(temp);
-    setTargetInfo(temp);
 
+    serverSocket =0;
+    clientSocket =0;
+
+    offlineDelay = 60 * 1000;       //default = 1min
+    offlineCheckInterv = 1* 1000;   //default = 1sec
+    heartbeatInterv = 1* 1000;      //default = 1sec
+
+    setSelfInfo(temp);
+    qDebug()<<temp.peerName;
+    setTargetInfo(temp);
 
     tokenTakeOutOvertimer.setSingleShot(true);
     connect(&tokenTakeOutOvertimer,SIGNAL(timeout()),this,SLOT(tokenTakeOutOvertime()));
@@ -21,11 +29,14 @@ tmTokenManager::tmTokenManager(QObject *parent) : QObject(parent)
     connect(&tokenOrderInOvertimer,SIGNAL(timeout()),this,SLOT(tokenOrderInOvertime()));
 
     heartBeatTimer.setSingleShot(false);
+    heartBeatTimer.setInterval(heartbeatInterv);
     connect(&heartBeatTimer,SIGNAL(timeout()),this,SLOT(heartBeatSender()));
 
-    start();
+    offlineCheckTimer.setSingleShot(false);
+    offlineCheckTimer.setInterval(offlineCheckInterv);
+    connect(&offlineCheckTimer,SIGNAL(timeout()),this,SLOT(offlineCheck()));
 
-    connect(serverSocket, SIGNAL(readyRead()),this, SLOT(processPendingDatagrams()));
+    start();
 }
 
 tmTokenManager::~tmTokenManager(){
@@ -34,8 +45,10 @@ tmTokenManager::~tmTokenManager(){
 
 //新建端口，初始化网络连接，自身状态设置为online（启动失败除外）
 int tmTokenManager::start(void){
-    if(serverSocket->isValid()){
+    if(serverSocket){
+        if(serverSocket->isValid()){
         serverSocket->deleteLater();
+        }
     }
     serverSocket = new QUdpSocket(this);
 
@@ -44,9 +57,13 @@ int tmTokenManager::start(void){
         setSelfErrorState( innerError );
         return -1;
     }
+    connect(serverSocket, SIGNAL(readyRead()),this, SLOT(processPendingDatagrams()));
 
-    if(clientSocket->isValid()){
-        clientSocket->deleteLater();
+    if(clientSocket){
+        if(clientSocket->isValid()){
+            clientSocket->deleteLater();
+            clientSocket = 0;
+        }
     }
     clientSocket = new QUdpSocket(this);
 
@@ -55,6 +72,7 @@ int tmTokenManager::start(void){
     if(selfInfo->errorState != innerError){
         setSelfState( peerOnlinewithoutToken );
         return 0;
+
     }
     else{
         setSelfState( peerDisable );
@@ -65,12 +83,17 @@ int tmTokenManager::start(void){
 
 //删除端口，终止网络连接，自身状态设为Disable
 int tmTokenManager::stop(void){
-    if(serverSocket->isValid()){
-        serverSocket->deleteLater();
+    if(serverSocket){
+        if(serverSocket->isValid()){
+            serverSocket->deleteLater();
+            serverSocket = 0;
+        }
     }
-
-    if(clientSocket->isValid()){
-        clientSocket->deleteLater();
+    if(clientSocket){
+        if(clientSocket->isValid()){
+            clientSocket->deleteLater();
+            clientSocket = 0;
+        }
     }
 
     heartBeatTimer.stop();
@@ -87,13 +110,96 @@ int tmTokenManager::restart(void){
 }
 
 //检查收到的报文
+//此处主要负责分发，不做条件判断
 void tmTokenManager::processPendingDatagrams(){
+    while (serverSocket->hasPendingDatagrams()) {
+        QByteArray datagram,head,parameter;
+        int paraBegin;
+        datagram.resize(serverSocket->pendingDatagramSize());
+        serverSocket->readDatagram(datagram.data(), datagram.size());
+
+        head = datagram.left(3);
+        if (head != "$TM") continue;//丢弃该报文
+
+        head = datagram.left(6);
+
+        if(head == "$TMSHB") {
+//      1、从站心跳报文(slave heart beat)
+//      $TMSHB,peer名称(max 255 byte),IP地址(4byte),peer状态(1byte),peer错误状态(1byte),peer令牌优先级(1byte)<CR><LF>
+            tmPeerInfo_t newOne;
+            paraBegin = 7;
+            newOne.peerName = datagramReadParameter( datagram , &paraBegin);
+            bool ok;
+            newOne.peerIp = (quint32)datagramReadParameter( datagram , &paraBegin).toUInt(&ok, 16);
+            qDebug()<<ok;
+            newOne.state = (tmPeerState_e)datagramReadParameter( datagram , &paraBegin).toShort(&ok, 10);
+            qDebug()<<ok;
+            newOne.errorState = (tmPeerErrorState_e)datagramReadParameter( datagram , &paraBegin).toUInt(&ok, 10);
+            qDebug()<<ok;
+            newOne.tokenGeneratorPriority = datagramReadParameter( datagram , &paraBegin).toUInt(&ok, 10);
+            qDebug()<<ok;
+            newOne.lastUpdateTime.start();
+            setPeerInfo(newOne);
+        }
+        if(head == "$TMMHB") {
+//      2、主站心跳报文(master heart beat)
+//      $TMMHB,peer名称(max 255 byte),IP地址(4byte),peer状态(1byte),peer错误状态(1byte),peer令牌优先级(1byte),状态消息(max 255 byte)<CR><LF>
+
+
+
+        }
+        if(head == "$TMTTR") {
+//      3、令牌转移提交(token transfer require)
+//      $TMTTR,源peer名称(持有token),目标peer名称,超时时间(秒 4byte)<CR><LF>
+
+
+
+        }
+        else if(head == "$TMTTA") {
+//      4、令牌转移应答确认(token transfer acknowleadge)
+//      $TMTTA,源peer名称,目标peer名称<CR><LF>
+
+        }
+
+        else if(head == "$TMTTC") {
+//      5、令牌转移取消(token transfer cancel)
+//      $TMTTC,源peer名称,目标peer名称<CR><LF>
+
+        }
+
+        else if(head == "$TMTTF") {
+//      6、令牌强制转移(toekn transfer forced)//用途：1.令牌强制获得。2、令牌丢失后，自动生成令牌
+//      $TMTTF,目标peer名称<CR><LF>
+
+        }
+        else {
+            emit tmOtherCommandReceived( datagram );
+        }
+
+    }
+}
+//检查站offline
+void tmTokenManager::offlineCheck(){
+    tmPeerInfo_t* test;
+    int i=2;
+    while (i<pPeersList.size()){
+        test = pPeersList.at(i);
+        if( test->lastUpdateTime.elapsed() >= offlineDelay ){
+            //set offline
+            test->state = peerOffline;
+        }
+        i++;
+            //will automatically change the state to Online aft heartbeat received
+    }
 
 }
 
 //发送心跳报文
 void tmTokenManager::heartBeatSender(){
+
     if(selfInfo->state == peerDisable) return;
+
+    //qDebug()<<"heartBeat";
 
     if(isWithToken()){
 //      master
@@ -106,16 +212,16 @@ void tmTokenManager::heartBeatSender(){
         heartBeat += ",";
         heartBeat += QByteArray::number(selfInfo->peerIp,16);
         heartBeat += ",";
-        heartBeat +=  (char)selfInfo->state;
+        heartBeat +=  (quint8)selfInfo->state;
         heartBeat += ",";
-        heartBeat +=  (char)selfInfo->errorState;
+        heartBeat +=  (quint8)selfInfo->errorState;
         heartBeat += ",";
-        heartBeat +=  (char)selfInfo->tokenGeneratorPriority;
+        heartBeat +=  (quint8)selfInfo->tokenGeneratorPriority;
         heartBeat += ",";
         heartBeat +=  masterPeerMessage;
         heartBeat += 0x0D;
         heartBeat += 0x0A;
-
+        qDebug()<<heartBeat;
         clientSocket->writeDatagram(heartBeat.data(), heartBeat.size(),QHostAddress::Broadcast, tmPort);
         return;
 
@@ -131,14 +237,14 @@ void tmTokenManager::heartBeatSender(){
         heartBeat += ",";
         heartBeat += QByteArray::number(selfInfo->peerIp,16);
         heartBeat += ",";
-        heartBeat +=  (char)selfInfo->state;
+        heartBeat +=  (quint8)selfInfo->state;
         heartBeat += ",";
-        heartBeat +=  (char)selfInfo->errorState;
+        heartBeat +=  (quint8)selfInfo->errorState;
         heartBeat += ",";
-        heartBeat +=  (char)selfInfo->tokenGeneratorPriority;
+        heartBeat +=  (quint8)selfInfo->tokenGeneratorPriority;
         heartBeat += 0x0D;
         heartBeat += 0x0A;
-
+        qDebug()<<heartBeat;
         clientSocket->writeDatagram(heartBeat.data(), heartBeat.size(),QHostAddress::Broadcast, tmPort);
 
         return;
@@ -149,7 +255,7 @@ void tmTokenManager::heartBeatSender(){
 int tmTokenManager::setPeerInfo(tmPeerInfo_t& newone){
     if(newone.peerName != "" && newone.peerIp != 0x0){
         tmPeerInfo_t* test;
-        for (int i=0; i<pPeersList.size();i++){
+        for (int i=2; i<pPeersList.size();i++){
             test = pPeersList.at(i);
             if(test->peerName == newone.peerName){
                 *test = newone;//发现同名节点，替换
@@ -167,7 +273,6 @@ int tmTokenManager::setPeerInfo(tmPeerInfo_t& newone){
 int tmTokenManager::setPeersInfo(QList<tmPeerInfo_t*>& newlist){
     if(newlist.size()>1){
         clearPeerInfo();//释放内存
-
         for (int i=0; i<newlist.size();i++){
             setPeerInfo( *newlist.at(i) );
         }
@@ -182,11 +287,15 @@ int tmTokenManager::setPeersInfo(QList<tmPeerInfo_t*>& newlist){
 }
 
 int tmTokenManager::setSelfInfo(tmPeerInfo_t& self){
+
     switch(pPeersList.size()){
         case 0:
             pPeersList.append(new tmPeerInfo_t());
+
         default:
+
             if(self.peerName != "" && self.peerIp != 0x0){
+
                 *(pPeersList.at(0)) = self;
                 selfInfo = pPeersList.at(0);
                 emit selfErrorStateChanged(selfInfo->errorState);
@@ -202,7 +311,14 @@ tmPeerInfo_t tmTokenManager::generateSelfInfo(){
     QTime time = QTime::currentTime();
     qsrand(time.msec());
     ret.peerName = tr("default_station_%1").arg(qrand());
-    ret.peerIp = QNetworkInterface::allAddresses().first().toIPv4Address();
+
+    foreach( QHostAddress t, QNetworkInterface::allAddresses()){
+        if (t.protocol() == QAbstractSocket::IPv4Protocol && !t.isLoopback()){
+            ret.peerIp = t.toIPv4Address();
+            qDebug()<<t;
+        }
+    }
+
     ret.tokenGeneratorPriority = 0 ;
     ret.lastUpdateTime = QTime::currentTime();
     ret.errorState = noError;
@@ -393,6 +509,22 @@ int tmTokenManager::tokenOrderInCancel(){
     }
     else return -1;
 }
+//强制切入
+int tmTokenManager::tokenForceTakeIn(){
+    if(selfInfo->state != peerDisable && selfInfo->errorState != innerError){
+        setSelfState( peerOnlinewithToken );
+        return 0;
+    }
+    else return -1;
+}
+//强制切出
+int tmTokenManager::tokenForceOrderOut(){
+    if(selfInfo->state != peerDisable){
+        setSelfState( peerOnlinewithoutToken );
+        return 0;
+    }
+    else return -1;
+}
 
 //判断是否有令牌，有=true
 //a、peerDisable               peer禁用
@@ -409,4 +541,16 @@ bool tmTokenManager::isWithToken(){
                 selfInfo->state == tokenOrderOutPending   )
         return true;
     else return false;
+}
+//查找报文中以逗号分割的参数
+QString tmTokenManager::datagramReadParameter(QByteArray & data, int *begin){
+    QByteArray comma(",");
+    int len = data.indexOf(comma,*begin) - *begin;  //报文指定起始点开始找第一个comma，算长度
+
+    QByteArray parameter;
+    parameter.resize(len);
+    parameter= data.mid(*begin,len);
+    *begin += (len +1);  //begine 迭代
+
+    return QString(parameter);
 }
