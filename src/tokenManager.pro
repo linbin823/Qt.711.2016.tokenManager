@@ -13,12 +13,20 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-    tokenmanager.cpp
+    tokenmanager.cpp \
+    example.cpp \
+    tmeasyapi.cpp \
+    sierrmsg.cpp
 
 HEADERS  += \
-    tokenmanager.h
+    tokenmanager.h \
+    example.h \
+    tmeasyapi.h \
+    sierrmsg.h \
+    siloadsave.h
 
-FORMS    +=
+FORMS    += \
+    example.ui
 
 DISTFILES += \
     ..\doc\Plan \

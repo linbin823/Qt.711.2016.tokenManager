@@ -40,14 +40,14 @@
 
 #include <QApplication>
 
-#include "tokenmanager.h"
-
+#include "example.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    tmTokenManager manager;
+    example t;
+    t.show();
 
     return app.exec();
 }
