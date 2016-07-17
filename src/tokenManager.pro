@@ -15,9 +15,9 @@ TEMPLATE = app
 SOURCES += main.cpp\
     example.cpp \
     tmeasyapi.cpp \
-    sierrmsg.cpp \
     tmpeer.cpp \
-    tmtokenmanager.cpp
+    tmtokenmanager.cpp \
+    basedevice.cpp
 
 HEADERS  += \
     example.h \
@@ -25,7 +25,9 @@ HEADERS  += \
     sierrmsg.h \
     siloadsave.h \
     tmpeer.h \
-    tmtokenmanager.h
+    tmtokenmanager.h \
+    sistatemsg.h \
+    basedevice.h
 
 FORMS    += \
     example.ui

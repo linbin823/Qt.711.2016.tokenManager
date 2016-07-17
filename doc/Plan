@@ -1,4 +1,4 @@
-一、应用场景
+﻿一、应用场景
 
     1、一个局域网内接入多台计算机，每台计算机各自运行一套功能相同的操作界面。每个操作界面对应一个peer。
 
@@ -78,10 +78,10 @@
     主要区别：报文长度限制512bytes，不使用校验。协议规划如下：
 
     1、从站心跳报文(slave heart beat)
-    $TMSHB,peer名称(max 255 byte),IP地址(4byte),peer状态(1byte),peer错误状态(1byte),peer令牌优先级(1byte)<CR><LF>
+    $TMSHB,peer名称(max 255 byte),IP地址(4byte),peer状态(8byte),peer错误状态(8byte),peer令牌优先级(4byte)<CR><LF>
 
     2、主站心跳报文(master heart beat)
-    $TMMHB,peer名称(max 255 byte),IP地址(4byte),peer状态(1byte),peer错误状态(1byte),peer令牌优先级(1byte),状态消息(max 255 byte)<CR><LF>
+    $TMMHB,peer名称(max 255 byte),IP地址(4byte),peer状态(8byte),peer错误状态(8byte),peer令牌优先级(4byte),状态消息(max 255 byte)<CR><LF>
     注意：消息的具体内容由其他程序打包送入和取出解析。
 
     3、令牌转移提交(token transfer require)

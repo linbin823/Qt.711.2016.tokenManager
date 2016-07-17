@@ -1,0 +1,142 @@
+#include "example.h"
+#include "ui_example.h"
+
+example::example(QWidget *parent) :
+    QWidget(parent),
+    ui(new Ui::example)
+{
+    ui->setupUi(this);
+
+    manager = new tmTokenManager(this);
+    model = new QStandardItemModel(this);
+    comm = new QThread(this);
+    comm->start();
+    manager->moveToThread(comm);
+
+    connect(manager,SIGNAL(peersListChanged()),this,SLOT(updateModel()));
+    connect(manager,SIGNAL(selfStateChanged()),this,SLOT(updateState()));
+
+    model->setHorizontalHeaderItem(0, new QStandardItem( "名称"));
+    model->setHorizontalHeaderItem(1, new QStandardItem( "IP"));
+    model->setHorizontalHeaderItem(2, new QStandardItem( "状态"));
+    model->setHorizontalHeaderItem(3, new QStandardItem( "最后错误"));
+    model->setHorizontalHeaderItem(4, new QStandardItem( "优先级"));
+
+
+    ui->tableView->setModel(model);
+    tmPeerInfo_t* s = manager->getSelfInfo();
+    ui->peerName->setText( s->peerName);
+    int current = 0;
+    foreach( QHostAddress t, QNetworkInterface::allAddresses()){
+        if (t.protocol() == QAbstractSocket::IPv4Protocol && !t.isLoopback()){
+            ui->peerIP->addItem(t.toString(),QVariant( t.toIPv4Address() ));
+            if(s->peerIp == t.toIPv4Address() ){
+                ui->peerIP->setCurrentIndex(current);
+            }
+            current ++;
+        }
+    }
+    ui->tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+
+    ui->peerPriority->setValue( s->priority );
+    ui->start->setEnabled(!manager->isStarted() );
+    ui->stop->setEnabled( manager->isStarted() );
+
+    updateState();
+}
+
+example::~example()
+{
+    delete ui;
+}
+
+void example::updateModel(){
+    QList<tmPeerInfo_t*> list;
+    list = manager->getPeersInfo();
+    tmPeerInfo_t* t;
+    for(int i=0; i<list.size()-2; i++){
+        t = list.at(i+2);
+        model->setItem(i,0,new QStandardItem(t->peerName));
+        model->setItem(i,1,new QStandardItem(QHostAddress(t->peerIp).toString()));
+        model->setItem(i,2,new QStandardItem(getState(t->state)));
+        model->setItem(i,3,new QStandardItem(getErrorState(t->errorState)));
+        model->setItem(i,4,new QStandardItem(QString::number(t->priority)));
+    }
+    //qDebug()<<"at2"<<list.at(2)->state<< list.at(2)->errorState<<list.at(2)->priority;
+    //qDebug()<<"at0"<<list.at(0)->state<< list.at(0)->errorState<<list.at(0)->priority;
+}
+
+QString example::getState(tmPeerState_e state){
+    switch(state){
+        case peerDisable:
+            return tr("停用");
+        case peerOnlinewithToken:
+            return tr("OnlinewithToken");
+        case peerOnlinewithoutToken:
+            return tr("OnlinewithoutToken");
+        case tokenTakeOutPending:
+            return tr("tokenTakeOutPending");
+        case tokenOrderOutPending:
+            return tr("tokenOrderOutPending");
+        case tokenTakeInPending:
+            return tr("tokenTakeInPending");
+        case tokenOrderInPending:
+            return tr("tokenOrderInPending");
+        case peerOffline:
+            return tr("掉线");
+        default:
+            return tr("NULL");
+    }
+}
+
+QString example::getErrorState(tmPeerErrorState_e errorState){
+    switch(errorState){
+    case noError:
+        return tr("noError");
+    case tokenLost:
+        return tr("令牌丢失");
+    case tokenMoreThanOne:
+        return tr("令牌超过两个");
+    case innerError:
+        return tr("内部错误");
+    case takeOutOverTime:
+        return tr("takeOutOverTime");
+    case takeInOverTime:
+        return tr("takeInOverTime");
+    case OrderOutOverTime:
+        return tr("OrderOutOverTime");
+    case OrderInOverTime:
+        return tr("OrderInOverTime");
+    default:
+        return tr("NULL");
+    }
+}
+void example::updateState(){
+    ui->state->setText(getState(manager->getSelfState()));
+}
+
+void example::on_setSelf_clicked()
+{
+    tmPeerInfo_t s;
+    s.peerName = ui->peerName->text();
+    s.peerIp = ui->peerIP->currentData().toUInt();
+    s.priority = ui->peerPriority->value();
+    s.state = peerOnlinewithoutToken;
+    s.errorState = noError;
+    manager->setSelfInfo(&s);
+}
+
+void example::on_start_clicked()
+{
+    manager->start();
+    ui->start->setEnabled(!manager->isStarted() );
+    ui->stop->setEnabled( manager->isStarted() );
+}
+
+void example::on_stop_clicked()
+{
+    manager->stop();
+    ui->start->setEnabled(!manager->isStarted() );
+    ui->stop->setEnabled( manager->isStarted() );
+}
