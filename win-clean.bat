@@ -2,14 +2,6 @@ Del /Q build\temp\Win32
 Del /Q build\temp\Win64
 Del /Q build\temp\i386
 Del /Q build\temp\x86_64
-Del /Q rich-demos\i386-bsd\tmp
-Del /Q rich-demos\i386-linux\tmp
-Del /Q rich-demos\i386-win32\tmp
-Del /Q rich-demos\Raspberry\tmp
-Del /Q rich-demos\x86_64-linux\tmp
-Del /Q rich-demos\x86_64-win64\tmp
-Del /Q LabVIEW\lib_tmp\win32
-Del /Q LabVIEW\lib_tmp\win64
 Del /S *.~*
 Del /S *.bak
 Del /S *.dcu
