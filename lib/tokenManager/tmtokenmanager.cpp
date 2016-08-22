@@ -58,7 +58,7 @@ tmTokenManager::~tmTokenManager(){
         clientSocket->deleteLater();
     }
 }
-int tmTokenManager::save(siLoadSaveProcessor* processor){
+int tmTokenManager::save(iLoadSaveProcessor* processor){
 
     processor->saveParameters( QString("masterPeerMessage") , masterPeerMessage );
     processor->saveParameters( QString("tmPort") , QString::number( tmPort) );
@@ -74,7 +74,7 @@ int tmTokenManager::save(siLoadSaveProcessor* processor){
     return 0;
 }
 
-int tmTokenManager::load(siLoadSaveProcessor* processor){
+int tmTokenManager::load(iLoadSaveProcessor* processor){
     int i,number;
     QString value;
     bool ok;
@@ -816,9 +816,7 @@ void tmTokenManager::setMasterPeerMessage(QString& msg){
     masterPeerMessage = msg;
     emit msgMasterPeerMessageUpdated();
 }
-QList<tmPeer*> tmTokenManager::getPeers() const{
-    return pPeersList;
-}
+
 int tmTokenManager::setSelfPeer( tmPeer* newone){
     if( pPeersList.size() ==0 ){
         //需要新建Self
@@ -841,17 +839,6 @@ tmPeer* tmTokenManager::getPartner() const{
     return pPeersList.at(tmPartnerIndex);
 }
 
-
-int tmTokenManager::setPeers(QList<tmPeer*>& newlist){
-    if(newlist.size()>1){
-        clearPeerInfo();//释放内存
-        pPeersList = newlist;
-        checkPriority();
-        checkName();
-        return 0;
-    }
-    else return -1;
-}
 
 int tmTokenManager::setPeer(tmPeer *newone){
     if( pPeersList.size() ==0 ){

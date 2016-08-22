@@ -12,7 +12,7 @@
 #include <QNetworkInterface>
 #include "basedevice.h"
 #include "tmpeer.h"
-#include "siloadsaveprocessor.h"
+#include "iloadsaveprocessor.h"
 
 
 class tmTokenManager  : public baseDevice
@@ -70,8 +70,8 @@ public:
         }
     }
 
-    virtual int save(siLoadSaveProcessor* processor);
-    virtual int load(siLoadSaveProcessor* processor);
+    virtual int save(iLoadSaveProcessor* processor);
+    virtual int load(iLoadSaveProcessor* processor);
 
 
 //others
@@ -161,9 +161,6 @@ public:
     inline tmPeer* getSelfPeer() const;
 
     int generateSelfInfo();
-
-    int setPeers(QList<tmPeer*>& newlist);//for save
-    QList<tmPeer*> getPeers() const;//for load
 
     bool isStarted();
 

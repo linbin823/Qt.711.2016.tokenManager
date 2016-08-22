@@ -7,7 +7,7 @@
 #include <QHostAddress>
 #include <QNetworkInterface>
 #include "basedevice.h"
-#include "siloadsaveprocessor.h"
+#include "iloadsaveprocessor.h"
 
 class tmPeer : public baseDevice
 {
@@ -74,8 +74,8 @@ public:
         }
     }
 
-    virtual int save(siLoadSaveProcessor* processor);
-    virtual int load(siLoadSaveProcessor* processor);
+    virtual int save(iLoadSaveProcessor* processor);
+    virtual int load(iLoadSaveProcessor* processor);
 
 
 public:

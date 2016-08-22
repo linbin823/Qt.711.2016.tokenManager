@@ -71,7 +71,7 @@ void example::updateModel(int index){
 
     //qDebug()<<"example::updateModel 3#";
     QModelIndex temp =ui->tableView->currentIndex();
-    tmPeer* t = manager->getPeers().at(index);
+    tmPeer* t = manager->getPeer(index);
     model->setItem(index,0,new QStandardItem(t->getName()));
     model->setItem(index,1,new QStandardItem(QHostAddress(t->getPeerIp()).toString()));
     model->setItem(index,2,new QStandardItem(t->getStateString()));

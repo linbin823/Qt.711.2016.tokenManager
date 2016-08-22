@@ -13,9 +13,5 @@ HEADERS  += $$PWD/tmeasyapi.h \
 INCLUDEPATH += $$PWD\
 
 DISTFILES += \
-    ../../HISTORY.txt \
-    ../../README.txt
-
-DISTFILES += \
     $$PWD\../../HISTORY.txt \
     $$PWD\../../README.txt

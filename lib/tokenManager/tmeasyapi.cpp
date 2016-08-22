@@ -2,7 +2,7 @@
 
 tmEasyAPI::tmEasyAPI(QObject *parent):tmTokenManager(parent)
 {
-    connect(getPeers().at(0),SIGNAL(msgStateChanged(quint64)),this,SLOT(tmEasySelfStateChanged(quint64)));
+    connect(getSelfPeer(),SIGNAL(msgStateChanged(quint64)),this,SLOT(tmEasySelfStateChanged(quint64)));
 }
 tmEasyAPI::~tmEasyAPI(){
 

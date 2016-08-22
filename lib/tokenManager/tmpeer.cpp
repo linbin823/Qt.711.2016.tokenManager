@@ -97,7 +97,7 @@ bool tmPeer::stopCheckOffline(){
     return false;
 }
 
-int tmPeer::save(siLoadSaveProcessor* processor){
+int tmPeer::save(iLoadSaveProcessor* processor){
 
     processor->saveParameters( QString("peerIp"), QString::number(peerIp) );
     processor->saveParameters( QString("priority"), QString::number(priority) );
@@ -109,7 +109,7 @@ int tmPeer::save(siLoadSaveProcessor* processor){
     return 0;
 }
 
-int tmPeer::load(siLoadSaveProcessor* processor){
+int tmPeer::load(iLoadSaveProcessor* processor){
     QString value;
     bool ok;
     processor->loadParameters( QString("peerIp"), &value );
