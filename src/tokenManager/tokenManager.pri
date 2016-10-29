@@ -1,6 +1,6 @@
 QT       += core network
 include(..\..\..\Qt.711.2016.common\lib\common\common.pri)
-include(..\..\..\Qt.711.2016.saveLoadProcessor\lib\loadSave\saveLoadProcessor.pri)
+include(..\..\..\Qt.711.2016.saveLoadProcessor\lib\loadSave\loadSaveProcessor.pri)
 
 SOURCES += $$PWD/tmeasyapi.cpp \
     $$PWD/tmpeer.cpp \
