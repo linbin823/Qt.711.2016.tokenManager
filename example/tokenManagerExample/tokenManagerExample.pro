@@ -11,7 +11,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = tokenManagerExample
 TEMPLATE = app
 
-include(..\..\lib\tokenManager\tokenManager.pri)
+include(../../src/tokenManager.pri)
 
 SOURCES +=  main.cpp\
             example.cpp \

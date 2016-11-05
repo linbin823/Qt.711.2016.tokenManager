@@ -39,35 +39,70 @@ public:
     };
 
     virtual QString getStateString(int lang =0 ) const{
-        switch(getState() ){
-            case stateStop:
-                return QString::fromLocal8Bit("令牌管理器停止");
-            case stateRun:
-                return QString::fromLocal8Bit("令牌管理器运行");
-            default:
-                return QString::fromLocal8Bit("错误");
+        if(lang == langEN){
+            switch(getState() ){
+                case stateStop:
+                    return QString("token manager stop");
+                case stateRun:
+                    return QString("token manager start");
+                default:
+                    return QString("error code not found");
+            }
+        }
+        else{
+            switch(getState() ){
+                case stateStop:
+                    return QString("令牌管理器停止");
+                case stateRun:
+                    return QString("令牌管理器运行");
+                default:
+                    return QString("找不到错误代码");
+            }
         }
     }
 
     virtual QString getErrorString(quint64 errorCode, int lang =0 ) const{
-        switch(errorCode){
-            case errorTokenLost:
-                return QString::fromLocal8Bit("网络上没有令牌");
-            case errorTokenDuplicated:
-                return QString::fromLocal8Bit("网络上有重令牌");
-            case errorPeerNameDuplicated:
-                return QString::fromLocal8Bit("网络上有重名");
-            case errorPeerPriorityDuplicated:
-                return QString::fromLocal8Bit("网络上有重优先级");
-            case errorNetworkError:
-                return QString::fromLocal8Bit("令牌管理器网络故障，致命必须重启");
-            case errorSelfPeerEmpty:
-                return QString::fromLocal8Bit("信息不全（本peer为空），无法启动");
-            case errorSelfPeerError:
-                return QString::fromLocal8Bit("本peer错误，无法启动");
-            default:
-                return QString::fromLocal8Bit("数据错误");
+        if(lang == langEN){
+            switch(errorCode){
+                case errorTokenLost:
+                    return QString("token not found in the LAN");
+                case errorTokenDuplicated:
+                    return QString("token duplicated in the LAN");
+                case errorPeerNameDuplicated:
+                    return QString("name duplicated in the LAN");
+                case errorPeerPriorityDuplicated:
+                    return QString("priority duplicated in the LAN");
+                case errorNetworkError:
+                    return QString("token manager fatal error, restart the app!");
+                case errorSelfPeerEmpty:
+                    return QString("incompleted self peer info, unable to start");
+                case errorSelfPeerError:
+                    return QString("self peer fault, unable to start");
+                default:
+                    return QString("error code not found");
+            }
         }
+        else{
+            switch(errorCode){
+                case errorTokenLost:
+                    return QString("网络上没有令牌");
+                case errorTokenDuplicated:
+                    return QString("网络上有重令牌");
+                case errorPeerNameDuplicated:
+                    return QString("网络上有重名");
+                case errorPeerPriorityDuplicated:
+                    return QString("网络上有重优先级");
+                case errorNetworkError:
+                    return QString("令牌管理器网络故障，致命必须重启");
+                case errorSelfPeerEmpty:
+                    return QString("信息不全（本peer为空），无法启动");
+                case errorSelfPeerError:
+                    return QString("本peer错误，无法启动");
+                default:
+                    return QString("找不到错误代码");
+            }
+        }
+
     }
 
     virtual int save(iLoadSaveProcessor* processor);
@@ -89,7 +124,7 @@ private:
     int tokenErrorDelay;
     int tokenCheckInterv;
     int tmPort;
-    int tmPartnerIndex;
+    int tmPartnerIndex;//交互方的index
 
     QByteArray datagramReadParameter(QByteArray & data, int *begin); //读取报文中以逗号分割的参数
     int findToken();                    //找到令牌所在peer的index，找不到则返回-1，多于1个则返回-2，同时修改报警状态
@@ -105,11 +140,11 @@ private slots:
 public:
     //token take out
     Q_INVOKABLE int tokenTakeOut(QString target, qint32 overtime=10000);
-    Q_INVOKABLE int tokenTakeOut(int index, qint32 overtime=10000);
+    Q_INVOKABLE int tokenTakeOut(int index = -1, qint32 overtime=10000);
     Q_INVOKABLE int tokenTakeOutCancel();
     //token take in
     Q_INVOKABLE int tokenTakeIn(QString target,qint32 overtime=10000);
-    Q_INVOKABLE int tokenTakeIn(int index,qint32 overtime=10000);
+    Q_INVOKABLE int tokenTakeIn(int index = -1,qint32 overtime=10000);
     Q_INVOKABLE int tokenTakeInCancel();
     //token order out
     Q_INVOKABLE int tokenOrderOutAck();
@@ -144,8 +179,11 @@ protected:
     int clearPeerInfo();//清空列表删除内存
 
 signals:
+    //主站同步指令更新
     void msgMasterPeerMessageUpdated();
+    //扩展接口
     void msgOtherCommandReceived(QByteArray msg);
+    //列表有更新
     void msgPeersListChanged(int index);
 
 //get & set
@@ -159,17 +197,14 @@ public:
 
     int setSelfPeer(tmPeer*newone);
     inline tmPeer* getSelfPeer() const;
+    inline tmPeer* getPartner() const;
 
     int generateSelfInfo();
 
     bool isStarted();
-
+    bool isIndexValid(int index);
 private:
     int setPeer(tmPeer *newone); //网络上peer的信息写入
-
-protected:
-    void setPartner(int index);
-    inline tmPeer* getPartner() const;
 
 
 };

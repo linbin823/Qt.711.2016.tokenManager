@@ -1,4 +1,8 @@
-﻿#include "tmtokenmanager.h"
+﻿#if _MSC_VER >= 1600
+#pragma execution_character_set("utf-8")
+#endif
+
+#include "tmtokenmanager.h"
 
 tmTokenManager::tmTokenManager(QObject *parent):baseDevice(parent)
 {
@@ -103,8 +107,9 @@ int tmTokenManager::load(iLoadSaveProcessor* processor){
 //启动
 int tmTokenManager::start(void){
 
+    //qDebug()<<"tmTokenManager::start"<<getSelfPeer()->getPeerIp();
     //1、bind网络
-    if( !serverSocket->bind( QHostAddress(getSelfPeer()->getPeerIp()),tmPort,QAbstractSocket::ShareAddress) ) {
+    if( !serverSocket->bind( QHostAddress::AnyIPv4,tmPort,QAbstractSocket::ShareAddress) ) {
         getSelfPeer()->setState( tmPeer::stateDisable );
         setError( errorNetworkError );
         setState( stateStop );
@@ -192,12 +197,14 @@ void tmTokenManager::processPendingDatagrams(){
 //      $TMSHB,peer名称(max 255 byte),IP地址(4byte),peer状态(1byte),peer错误状态(1byte),peer令牌优先级(1byte)<CR><LF>
             paraBegin = 7;
             temp_name = datagramReadParameter( datagram , &paraBegin);
-            if( getSelfPeer()->getName() == temp_name ) continue;//本peer自己发的，丢弃该报文
             temp_ip = datagramReadParameter( datagram , &paraBegin).toUInt(&ok, 16);
             temp_state =  datagramReadParameter( datagram , &paraBegin).toLongLong(&ok, 16);
             temp_error =  datagramReadParameter( datagram , &paraBegin).toLongLong(&ok, 16);
             temp_priority = datagramReadParameter( datagram , &paraBegin).toUInt(&ok,16);
-            //qDebug()<<temp_error<<temp_ip<<temp_priority;
+            if( getSelfPeer()->getName() == temp_name
+                    && getSelfPeer()->getPeerIp() == temp_ip
+                    && getSelfPeer()->getPeerPriority() == temp_priority) continue;//本peer自己发的，丢弃该报文
+            //qDebug()<<"tmTokenManager::processPendingDatagrams()"<<temp_name<<temp_error<<temp_ip<<temp_priority;
             newOne.update(temp_name,temp_state,temp_error,temp_priority,temp_ip);
             setPeer(&newOne);
         }
@@ -206,11 +213,14 @@ void tmTokenManager::processPendingDatagrams(){
 //      $TMMHB,peer名称(max 255 byte),IP地址(4byte),peer状态(1byte),peer错误状态(1byte),peer令牌优先级(1byte),状态消息(max 255 byte)<CR><LF>
             paraBegin = 7;
             temp_name = datagramReadParameter( datagram , &paraBegin);
-            if( getSelfPeer()->getName() == temp_name ) continue;//本peer自己发的，丢弃该报文
+
             temp_ip = datagramReadParameter( datagram , &paraBegin).toUInt(&ok, 16);
             temp_state =  datagramReadParameter( datagram , &paraBegin).toLongLong(&ok, 16);
             temp_error =  datagramReadParameter( datagram , &paraBegin).toLongLong(&ok, 16);
             temp_priority = datagramReadParameter( datagram , &paraBegin).toUInt(&ok,16);
+            if( getSelfPeer()->getName() == temp_name
+                    && getSelfPeer()->getPeerIp() == temp_ip
+                    && getSelfPeer()->getPeerPriority() == temp_priority) continue;//本peer自己发的，丢弃该报文
             //qDebug()<<temp_error<<temp_ip<<temp_priority;
             newOne.update(temp_name,temp_state,temp_error,temp_priority,temp_ip);
             setPeer(&newOne);
@@ -397,10 +407,28 @@ int tmTokenManager::clearPeerInfo(){
 
 /////////////////////////////////1、本机主动交出令牌
 //本机主动交出令牌 请求
+//2016.10修改：
+//为简化操作流程，index可以不指定（默认为-1）。此时自动获取唯一没有token的peer的index，若是多于一个peer没有token则 整个函数返回-1.
 int tmTokenManager::tokenTakeOut(int index, qint32 overtime){
     if(getState() != stateRun) return -6;//tokenManager不在运行状态
-    if(index <=0 || index >= pPeersList.size() ) return -1;//找不到目标对应的数据
-    tmPartnerIndex = index;
+    if(index == -1){
+        //查找唯一没有token的peer
+        int count =0;
+        for(int i=1; i<pPeersList.size();i++ ){
+            if(getPeer(i)->getState() == tmPeer::stateOnlinewithoutToken){
+                count++;
+                index = i;
+            }
+        }
+        if(count == 1){
+            tmPartnerIndex = index;
+        }
+        else return -1;//找不到partner
+    }
+    else{
+        if(!isIndexValid(index) || index == 0 ) return -1;//找不到partner
+        tmPartnerIndex = index;
+    }
     if(overtime <0) return -1;   //overTime数据不对
     if(getSelfPeer()->getState() != tmPeer::stateOnlinewithToken ) return -2;//仅当本peer在线有token时才能进入takeout
     if(getSelfPeer()->getError() == tmPeer::errorInnerError || getError() == errorNetworkError) return -3;//本peer未准备好
@@ -470,10 +498,28 @@ int tmTokenManager::tokenTakeOutCancel(){
 }
 /////////////////////////////////2、本机主动获得令牌
 //本机主动获得令牌 请求
+//2016.10修改：
+//为简化操作流程，index可以不指定（默认为-1）。此时自动获取唯一有token的peer的index，若是本机有token或没有peer有token则返回-1.
 int tmTokenManager::tokenTakeIn(int index, qint32 overtime){
     if(getState() != stateRun) return -6;//tokenManager不在运行状态
-    if(index <=0 || index >= pPeersList.size() ) return -1;//找不到目标对应的数据
-    tmPartnerIndex = index;
+    if(index == -1){
+        //查找唯一有token的peer
+        int count =0;
+        for(int i=1; i<pPeersList.size();i++ ){
+            if(getPeer(i)->getState() == tmPeer::stateOnlinewithToken){
+                count++;
+                index = i;
+            }
+        }
+        if(count == 1){
+            tmPartnerIndex = index;
+        }
+        else return -1;//找不到partner
+    }
+    else{
+        if(!isIndexValid(index) || index == 0 ) return -1;//找不到partner
+        tmPartnerIndex = index;
+    }
     if(overtime <0) return -1;   //overTime数据不对
     if(getSelfPeer()->getState() != tmPeer::stateOnlinewithoutToken ) return -2;//仅当本peer在线无token时才能进入takeout
     if(getSelfPeer()->getError() == tmPeer::errorInnerError || getError() == errorNetworkError) return -3;//本peer未准备好
@@ -717,6 +763,13 @@ bool tmTokenManager::isStarted(){
     if(getState() == stateRun) return true;
     else return false;
 }
+//判断index是否合法
+bool tmTokenManager::isIndexValid(int index){
+    if(index <0 || index >=pPeersList.size() ){
+        return false;
+    }
+    return true;
+}
 
 //判断本peer是否最高优先级。
 bool tmTokenManager::isSelfFirstPriority(){
@@ -735,40 +788,42 @@ bool tmTokenManager::isSelfFirstPriority(){
 
 //检查优先等级，发现相同优先等级且本peer的ip地址最后一段较小，则本peer的优先级++
 void tmTokenManager::checkPriority(){
-    quint32 self= getSelfPeer()->getPeerPriority();
-    qint8 aux1 = (qint8)getSelfPeer()->getPeerIp();
-    qint8 aux2 = (qint8)getSelfPeer()->getName().right(1).toLocal8Bit().toInt();
+    quint32 self = getSelfPeer()->getPeerPriority();
+    quint32 aux1 = getSelfPeer()->getPeerIp();
+    quint32 aux2 = (qint8)getSelfPeer()->getName().right(1).toLocal8Bit().toInt();
     //qDebug()<<"checkPriority";
     int index = 1;
     while(index<pPeersList.size()){
-        if(self == pPeersList.at(index)->getPeerPriority() &&
-                aux1 < (qint8)pPeersList.at(index)->getPeerIp() ){
+        if(self == getPeer(index)->getPeerPriority()
+                && aux1 < (qint8)getPeer(index)->getPeerIp() ){
             self++;
             getSelfPeer()->setPeerPriority(self);
-            return;
         }
-        if(self == pPeersList.at(index)->getPeerPriority() &&
-                aux2 < (qint8)pPeersList.at(index)->getName().right(1).toLocal8Bit().toInt()){
+        if(self == getPeer(index)->getPeerPriority()
+                && aux2 < (qint8)getPeer(index)->getName().right(1).toLocal8Bit().toInt()){
             self++;
             getSelfPeer()->setPeerPriority(self);
-            return;
         }
         index++;
     }
 }
 
 //检查名字，发现相同名字且本peer优先级较小，则本peer的名字+随机码
+//2016.10修改：发现相同名字，且优先级相同，则ip地址比较小的peer的名字+随机码
 void tmTokenManager::checkName(){
     QString self = getSelfPeer()->getName();
-    quint32 aux= getSelfPeer()->getPeerPriority();
+    quint32 aux  = getSelfPeer()->getPeerPriority();
+    quint32 aux1 = getSelfPeer()->getPeerIp();
+    QTime time = QTime::currentTime();
+    qsrand(time.msec());
     int index = 1;
     while(index<pPeersList.size()){
-        if(self == pPeersList.at(index)->getName() &&
-                aux < pPeersList.at(index)->getPeerPriority() ){
-            QTime time = QTime::currentTime();
-            qsrand(time.msec());
-            self += QString::number(qrand());
-            getSelfPeer()->setName( self );
+        if(self == getPeer(index)->getName() ){
+            if(aux < getPeer(index)->getPeerPriority() ||
+                    ( aux == getPeer(index)->getPeerPriority() && aux1 < getPeer(index)->getPeerIp() ) ){
+                self += QString::number(qrand());
+                getSelfPeer()->setName( self );
+            }
         }
         index++;
     }
@@ -911,10 +966,12 @@ tmPeer* tmTokenManager::getPeer(QString& name) const{
             return pPeersList.at(i);
         }
     }
-    return NULL;
+    return nullptr;
 }
 //根据序号找tmPeer*
 tmPeer* tmTokenManager::getPeer(int index) const{
+    if( index <0 || index >=pPeersList.size() )
+        return nullptr;
     return pPeersList.at(index);
 }
 //根据名称查找index

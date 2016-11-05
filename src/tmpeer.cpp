@@ -1,10 +1,14 @@
-﻿#include "tmpeer.h"
+﻿#if _MSC_VER >= 1600
+#pragma execution_character_set("utf-8")
+#endif
+
+#include "tmpeer.h"
 
 tmPeer::tmPeer(QObject *parent) : baseDevice(parent)
 {
     QTime time = QTime::currentTime();
     qsrand(time.msec());
-    setName( QString::fromLocal8Bit("默认peer名称_%1").arg(qrand()) );
+    setName( QString("default peer name %1").arg(qrand()) );
     peerIp = 0;
     priority = 0;
     lastUpdateTime.start();
