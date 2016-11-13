@@ -185,6 +185,10 @@ signals:
     void msgOtherCommandReceived(QByteArray msg);
     //列表有更新
     void msgPeersListChanged(int index);
+    //网上令牌丢失，且本机有最高的优先级，提示是否强制获得令牌
+    void msgTokenLostShallForceIn();
+    //本机的令牌在网上有重复，提示是否强制让出令牌
+    void msgTokenDuplicatedShallForceOut();
 
 //get & set
 public:
@@ -203,6 +207,8 @@ public:
 
     bool isStarted();
     bool isIndexValid(int index);
+
+    bool autoForceIn, autoForceOut;
 private:
     int setPeer(tmPeer *newone); //网络上peer的信息写入
 

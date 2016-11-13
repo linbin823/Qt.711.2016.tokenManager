@@ -6,6 +6,12 @@
 
 tmTokenManager::tmTokenManager(QObject *parent):baseDevice(parent)
 {
+    //默认情况下（可以设置）
+    //网络令牌丢失，不会自动ForceIn
+    autoForceIn= false;
+    //网络令牌重复，且自身优先级低，会自动ForceOut
+    autoForceOut= true;
+
     //初始化常数
     tmPort = 10452;
     tmPartnerIndex = 0;//初始化时，指向self
@@ -319,8 +325,14 @@ void tmTokenManager::tokenCheck(){
         if(tokenErrorDelayTime.elapsed() >= tokenErrorDelay){
             setError(errorTokenLost);
             if( isSelfFirstPriority() ){
-                //本机有最高优先权则立即获得token
-                tokenForceTakeIn();
+                if(autoForceIn){
+                    //本机有最高优先权自动获得token
+                    tokenForceTakeIn();
+                }
+                else{
+                    //ui给出提示，由客户手动ForceTakeIn()
+                    emit msgTokenLostShallForceIn();
+                }
             }
         }
     }
@@ -329,8 +341,14 @@ void tmTokenManager::tokenCheck(){
         if(tokenErrorDelayTime.elapsed() >= tokenErrorDelay){
             setError(errorTokenDuplicated);
             if ( getSelfPeer()->isWithToken() && !isSelfFirstPriority() ){
-                //本机没有最高优先权则立即取消token
-                tokenForceOrderOut();
+                if(autoForceOut){
+                    //本机没有最高优先权自动取消token
+                    tokenForceOrderOut();
+                }
+                else{
+                    //ui给出提示，由客户手动ForceOrderOut();
+                    emit msgTokenDuplicatedShallForceOut();
+                }
             }
         }
     }
@@ -409,6 +427,8 @@ int tmTokenManager::clearPeerInfo(){
 //本机主动交出令牌 请求
 //2016.10修改：
 //为简化操作流程，index可以不指定（默认为-1）。此时自动获取唯一没有token的peer的index，若是多于一个peer没有token则 整个函数返回-1.
+//2016.11.11修改
+//为了再次简化操作流程，overtime = -1，此时不触发任何超时机制（死等）。
 int tmTokenManager::tokenTakeOut(int index, qint32 overtime){
     if(getState() != stateRun) return -6;//tokenManager不在运行状态
     if(index == -1){
@@ -429,7 +449,8 @@ int tmTokenManager::tokenTakeOut(int index, qint32 overtime){
         if(!isIndexValid(index) || index == 0 ) return -1;//找不到partner
         tmPartnerIndex = index;
     }
-    if(overtime <0) return -1;   //overTime数据不对
+//    2016.11.11删除
+//    if(overtime <0) return -1;   //overTime数据不对
     if(getSelfPeer()->getState() != tmPeer::stateOnlinewithToken ) return -2;//仅当本peer在线有token时才能进入takeout
     if(getSelfPeer()->getError() == tmPeer::errorInnerError || getError() == errorNetworkError) return -3;//本peer未准备好
     if(getPartner()->getState() != tmPeer::stateOnlinewithoutToken ) return -4;//仅当目标peer在线无token时才能进入takeout
@@ -500,6 +521,8 @@ int tmTokenManager::tokenTakeOutCancel(){
 //本机主动获得令牌 请求
 //2016.10修改：
 //为简化操作流程，index可以不指定（默认为-1）。此时自动获取唯一有token的peer的index，若是本机有token或没有peer有token则返回-1.
+//2016.11.11修改
+//为了再次简化操作流程，overtime = -1，此时不触发任何超时机制（死等）。
 int tmTokenManager::tokenTakeIn(int index, qint32 overtime){
     if(getState() != stateRun) return -6;//tokenManager不在运行状态
     if(index == -1){
@@ -520,7 +543,8 @@ int tmTokenManager::tokenTakeIn(int index, qint32 overtime){
         if(!isIndexValid(index) || index == 0 ) return -1;//找不到partner
         tmPartnerIndex = index;
     }
-    if(overtime <0) return -1;   //overTime数据不对
+//    2016.11.11删除
+//    if(overtime <0) return -1;   //overTime数据不对
     if(getSelfPeer()->getState() != tmPeer::stateOnlinewithoutToken ) return -2;//仅当本peer在线无token时才能进入takeout
     if(getSelfPeer()->getError() == tmPeer::errorInnerError || getError() == errorNetworkError) return -3;//本peer未准备好
     if(getPartner()->getState() != tmPeer::stateOnlinewithToken ) return -4;//仅当目标peer在线有token时才能进入takeout
@@ -592,10 +616,13 @@ int tmTokenManager::tokenTakeInCancel(){
 
 /////////////////////////////////3、本机被动交出令牌
 //本机被动将令牌交出 请求
+//2016.11.11修改
+//为了再次简化操作流程，overtime = -1，此时不触发任何超时机制（死等）。
 int tmTokenManager::tokenOrderOut(qint32 overtime){
     if(getState() != stateRun) return -6;//tokenManager不在运行状态
     if(tmPartnerIndex <=0 || tmPartnerIndex >= pPeersList.size() ) return -1;//找不到目标对应的数据
-    if(overtime <0) return -1;   //overTime数据不对
+//    2016.11.11删除
+//    if(overtime <0) return -1;   //overTime数据不对
     if(getSelfPeer()->getState() != tmPeer::stateOnlinewithToken ) return -2;//仅当本peer在线有无token时才能进入takeout
     if(getSelfPeer()->getError() == tmPeer::errorInnerError || getError() == errorNetworkError) return -3;//本peer未准备好
     if(getPartner()->getState() != tmPeer::stateOnlinewithoutToken ) return -4;//仅当目标peer在线无token时才能进入takeout
@@ -657,10 +684,13 @@ int tmTokenManager::tokenOrderOutCancel(){
 
 /////////////////////////////////4、本机被动获得令牌
 //本机被动获得令牌 请求
+//2016.11.11修改
+//为了再次简化操作流程，overtime = -1，此时不触发任何超时机制（死等）。
 int tmTokenManager::tokenOrderIn( qint32 overtime){
     if(getState() != stateRun) return -6;//tokenManager不在运行状态
     if(tmPartnerIndex <=0 || tmPartnerIndex >= pPeersList.size() ) return -1;//找不到目标对应的数据
-    if(overtime <0) return -1;   //overTime数据不对
+//    2016.11.11删除
+//    if(overtime <0) return -1;   //overTime数据不对
     if(getSelfPeer()->getState() != tmPeer::stateOnlinewithoutToken ) return -2;//仅当本peer在线无token时才能进入takeout
     if(getSelfPeer()->getError() == tmPeer::errorInnerError || getError() == errorNetworkError) return -3;//本peer未准备好
     if(getPartner()->getState() != tmPeer::stateOnlinewithToken ) return -4;//仅当目标peer在线有token时才能进入takeout
