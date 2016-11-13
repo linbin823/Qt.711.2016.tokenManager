@@ -53,7 +53,7 @@ quint32 tmPeer::getPeerIp() const{
     return peerIp;
 }
 
-void tmPeer::update(QString& name, quint64 state, quint64 error, quint32 pri, quint32 ip){
+void tmPeer::update(const QString& name, quint64 state, quint64 error, quint32 pri, quint32 ip){
     //qDebug()<<name<<state<<error<<pri<<ip;
     setName(name);
     setState(state);

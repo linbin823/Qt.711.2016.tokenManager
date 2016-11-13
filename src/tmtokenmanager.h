@@ -49,14 +49,14 @@ public:
                     return QString("error code not found");
             }
         }
-        else{
+        else if(lang == langCHN){
             switch(getState() ){
                 case stateStop:
-                    return QString("令牌管理器停止");
+                    return tr("令牌管理器停止");
                 case stateRun:
-                    return QString("令牌管理器运行");
+                    return tr("令牌管理器运行");
                 default:
-                    return QString("找不到错误代码");
+                    return tr("找不到错误代码");
             }
         }
     }
@@ -82,24 +82,24 @@ public:
                     return QString("error code not found");
             }
         }
-        else{
+        else if(lang == langCHN){
             switch(errorCode){
                 case errorTokenLost:
-                    return QString("网络上没有令牌");
+                    return tr("网络上没有令牌");
                 case errorTokenDuplicated:
-                    return QString("网络上有重令牌");
+                    return tr("网络上有重令牌");
                 case errorPeerNameDuplicated:
-                    return QString("网络上有重名");
+                    return tr("网络上有重名");
                 case errorPeerPriorityDuplicated:
-                    return QString("网络上有重优先级");
+                    return tr("网络上有重优先级");
                 case errorNetworkError:
-                    return QString("令牌管理器网络故障，致命必须重启");
+                    return tr("令牌管理器网络故障，致命必须重启");
                 case errorSelfPeerEmpty:
-                    return QString("信息不全（本peer为空），无法启动");
+                    return tr("信息不全（本peer为空），无法启动");
                 case errorSelfPeerError:
-                    return QString("本peer错误，无法启动");
+                    return tr("本peer错误，无法启动");
                 default:
-                    return QString("找不到错误代码");
+                    return tr("找不到错误代码");
             }
         }
 
@@ -126,7 +126,7 @@ private:
     int tmPort;
     int tmPartnerIndex;//交互方的index
 
-    QByteArray datagramReadParameter(QByteArray & data, int *begin); //读取报文中以逗号分割的参数
+    QByteArray datagramReadParameter(const QByteArray & data, int *begin); //读取报文中以逗号分割的参数
     int findToken();                    //找到令牌所在peer的index，找不到则返回-1，多于1个则返回-2，同时修改报警状态
     void checkPriority();               //检查优先等级，发现相同优先等级且本peer的ip地址最后一段较小，则本peer的优先级++
     void checkName();                   //检查名字，发现相同名字且本peer优先级较小，则本peer的名字+随机码

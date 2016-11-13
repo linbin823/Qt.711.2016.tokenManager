@@ -48,26 +48,26 @@ public:
                  return QString("error code not found");
              }
         }
-        else{
+        else if(lang == langCHN){
             switch(getState()){
             case stateDisable:
-                return QString("停用");
+                return tr("停用");
             case stateOnlinewithToken:
-                return QString("在线有令牌");
+                return tr("在线有令牌");
             case stateOnlinewithoutToken:
-                return QString("在线无令牌");
+                return tr("在线无令牌");
             case stateTokenTakeOutPending:
-                return QString("主动转出 等待确认");
+                return tr("主动转出 等待确认");
             case stateTokenTakeInPending:
-                return QString("主动转入 等待确认");
+                return tr("主动转入 等待确认");
             case stateTokenOrderOutPending:
-                return QString("被动转出 等待确认");
+                return tr("被动转出 等待确认");
             case stateTokenOrderInPending:
-                return QString("被动转入 等待确认");
+                return tr("被动转入 等待确认");
             case stateOffline:
-                return QString("掉线");
+                return tr("掉线");
             default:
-                return QString("找不到错误代码");
+                return tr("找不到错误代码");
             }
         }
      }
@@ -96,21 +96,21 @@ public:
                     return QString("error code not found");
             }
         }
-        else{
+        else if(lang == langCHN){
             switch(errorCode){
                 case errorInnerError:
                     //qDebug()<<"tmPeer::getErrorString 2#";
-                    return QString("内部错误");
+                    return tr("内部错误");
                 case errorTakeOutOverTime:
-                    return QString("主动转出等待超时");
+                    return tr("主动转出等待超时");
                 case errorTakeInOverTime:
-                    return QString("主动转入等待超时");
+                    return tr("主动转入等待超时");
                 case errorOrderOutOverTime:
-                    return QString("被动转出等待超时");
+                    return tr("被动转出等待超时");
                 case errorOrderInOverTime:
-                    return QString("被动转入等待超时");
+                    return tr("被动转入等待超时");
                 default:
-                    return QString("找不到错误代码");
+                    return tr("找不到错误代码");
             }
         }
     }
@@ -126,7 +126,7 @@ public:
     quint32 getPeerPriority() const;
     quint32 getPeerIp() const;
 
-    void update(QString& name, quint64 state, quint64 error, quint32 pri, quint32 ip);
+    void update(const QString& name, quint64 state, quint64 error, quint32 pri, quint32 ip);
     void update();
     bool isWithToken();  //判断是否有令牌，有=true
 

@@ -144,6 +144,7 @@ void example::on_cancel_clicked()
 void example::on_masterPeerMsg_editingFinished()
 {
     manager->setMasterPeerMessage( ui->masterPeerMsg->text() );
+    qDebug()<<ui->masterPeerMsg->text();
 }
 
 void example::updateMasterString(){

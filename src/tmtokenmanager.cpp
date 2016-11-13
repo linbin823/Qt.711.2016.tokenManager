@@ -830,7 +830,7 @@ void tmTokenManager::checkName(){
 }
 
 //查找报文中以逗号分割的参数
-QByteArray tmTokenManager::datagramReadParameter(QByteArray & data, int *begin){
+QByteArray tmTokenManager::datagramReadParameter(const QByteArray & data, int *begin){
     QByteArray comma(",");
     QByteArray end;
     end.append(0x0D).append(0x0A);
