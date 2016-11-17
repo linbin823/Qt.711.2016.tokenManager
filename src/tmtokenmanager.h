@@ -117,12 +117,14 @@ private:
     QUdpSocket* clientSocket;
     QUdpSocket* serverSocket;
     QTimer tokenTakeOutOvertimer, tokenTakeInOvertimer, tokenOrderOutOvertimer, tokenOrderInOvertimer;
-    QTimer heartBeatTimer,tokenCheckTimer;
+    QTimer heartBeatTimer,tokenCheckTimer,startCheckTimer;
     QTime tokenErrorDelayTime;
 
+    bool shouldStart;
     int heartbeatInterv;
     int tokenErrorDelay;
     int tokenCheckInterv;
+    int startCheckInterv;
     int tmPort;
     int tmPartnerIndex;//交互方的index
 
@@ -136,6 +138,7 @@ private slots:
     void heartBeatSender();
     void tokenCheck();
     void peerChanged(QString name);
+    void startCheck();
 
 public:
     //token take out
@@ -165,16 +168,15 @@ private:
     int tokenTakeInAck();
     int tokenOrderOut(qint32 overtime=0);
     int tokenOrderIn(qint32 overtime=0);
-    //token Order out forced
-    int tokenForceOrderOut();
+    //token take out forced
 
 public:
     //token manager control
     Q_INVOKABLE int start(void);                    //新建端口，初始化网络连接，自身状态设置为online（启动失败除外）
     Q_INVOKABLE int stop(void);                     //删除端口，终止网络连接，自身状态设为Disable
     Q_INVOKABLE int restart(void);                  //重启
-
     Q_INVOKABLE bool isSelfFirstPriority();         //判断本peer是否最高优先级。
+    Q_INVOKABLE int tokenForceTakeOut();            //直接放弃本机的令牌
 protected:
     int clearPeerInfo();//清空列表删除内存
 

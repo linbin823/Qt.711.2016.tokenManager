@@ -19,6 +19,7 @@ tmTokenManager::tmTokenManager(QObject *parent):baseDevice(parent)
     heartbeatInterv = 1* 1000;      //default = 1sec
     tokenCheckInterv  = 2*1000;     //default = 2sec
     tokenErrorDelay = 5 * 1000;     //default = 5sec
+    startCheckInterv = 10 * 1000;   //default = 10sec
 
     //初始化对象
     serverSocket = new QUdpSocket(this);
@@ -47,6 +48,10 @@ tmTokenManager::tmTokenManager(QObject *parent):baseDevice(parent)
     tokenCheckTimer.setInterval(tokenCheckInterv);
     connect(&tokenCheckTimer,SIGNAL(timeout()),this,SLOT(tokenCheck()));
 
+    startCheckTimer.setSingleShot(false);//是否启动检查器，当网络条件不好启动失败后，自动重启
+    startCheckTimer.setInterval(startCheckInterv);
+    connect(&startCheckTimer,SIGNAL(timeout()),this,SLOT(startCheck()));
+
     if( pPeersList.size() ==0 ){
         //需要新建Self
         tmPeer* self = new tmPeer(this);
@@ -70,10 +75,11 @@ tmTokenManager::~tmTokenManager(){
 }
 int tmTokenManager::save(iLoadSaveProcessor* processor){
 
-    processor->saveParameters( QString("masterPeerMessage") , masterPeerMessage );
-    processor->saveParameters( QString("tmPort") , QString::number( tmPort) );
-    processor->saveParameters( QString("tmPartnerIndex") , QString::number( tmPartnerIndex) );
-    processor->saveParameters( QString("pPeersListSize"), QString::number( pPeersList.size() ));
+    processor->saveParameters( "masterPeerMessage" , masterPeerMessage );
+    processor->saveParameters( "tmPort" , QString::number( tmPort) );
+    processor->saveParameters( "tmPartnerIndex" , QString::number( tmPartnerIndex) );
+    processor->saveParameters( "pPeersListSize", QString::number( pPeersList.size() ));
+    processor->saveParameters( "shouldStart", QString::number(shouldStart));
     baseDevice::save(processor);
     for(int i=0; i<pPeersList.size(); i++){
         processor->createNewInstance( QString("tmPeer"), QString::number(i) );
@@ -94,6 +100,8 @@ int tmTokenManager::load(iLoadSaveProcessor* processor){
     tmPort = value.toInt( &ok, 10);
     processor->loadParameters( QString("tmPartnerIndex") , &value);
     tmPartnerIndex = value.toInt( &ok, 10);
+    processor->loadParameters( QString("shouldStart") , &value);
+    shouldStart = value.toInt( &ok, 10);
     baseDevice::load(processor);
     processor->loadParameters( QString("pPeersListSize") , &value);
     number = value.toInt( &ok, 10);
@@ -112,7 +120,7 @@ int tmTokenManager::load(iLoadSaveProcessor* processor){
 
 //启动
 int tmTokenManager::start(void){
-
+    shouldStart = true;
     //qDebug()<<"tmTokenManager::start"<<getSelfPeer()->getPeerIp();
     //1、bind网络
     if( !serverSocket->bind( QHostAddress::AnyIPv4,tmPort,QAbstractSocket::ShareAddress) ) {
@@ -158,6 +166,7 @@ int tmTokenManager::start(void){
 
 //停止
 int tmTokenManager::stop(void){
+    shouldStart = false;
     //接口关闭
     serverSocket->close();
     clientSocket->close();
@@ -307,7 +316,7 @@ void tmTokenManager::processPendingDatagrams(){
             if (target != getSelfPeer()->getName() ){
                 //强制到其他peer
                 tmPartnerIndex = getPeerIndex( target );
-                tokenForceOrderOut();
+                tokenForceTakeOut();
             }
         }
         else {
@@ -343,7 +352,7 @@ void tmTokenManager::tokenCheck(){
             if ( getSelfPeer()->isWithToken() && !isSelfFirstPriority() ){
                 if(autoForceOut){
                     //本机没有最高优先权自动取消token
-                    tokenForceOrderOut();
+                    tokenForceTakeOut();
                 }
                 else{
                     //ui给出提示，由客户手动ForceOrderOut();
@@ -752,7 +761,7 @@ int tmTokenManager::tokenOrderInCancel(){
 }
 
 //强制切出
-int tmTokenManager::tokenForceOrderOut(){
+int tmTokenManager::tokenForceTakeOut(){
     if(getSelfPeer()->getState() != tmPeer::stateDisable){
         getSelfPeer()->setState( tmPeer::stateOnlinewithoutToken );
         return 0;
@@ -856,6 +865,13 @@ void tmTokenManager::checkName(){
             }
         }
         index++;
+    }
+}
+
+//检查是否启动。发现需要启动但未启动，则尝试启动。
+void tmTokenManager::startCheck(){
+    if(shouldStart && (!isStarted()) ){
+        restart();
     }
 }
 
