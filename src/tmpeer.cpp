@@ -63,7 +63,6 @@ void tmPeer::update(const QString& name, quint64 state, quint64 error, quint32 p
     lastUpdateTime.start();
 }
 
-
 void tmPeer::update(){
     lastUpdateTime.start();
 }

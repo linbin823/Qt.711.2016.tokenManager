@@ -1,5 +1,5 @@
 QT       += core network
-include($$PWD/../lib/saveLoadProcessor/src/loadsaveProcessor.pri)
+include($$PWD/../lib/loadSaveProcessor/src/loadsaveProcessor.pri)
 
 SOURCES +=\
     $$PWD/tmpeer.cpp \
